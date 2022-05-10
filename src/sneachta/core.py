@@ -35,7 +35,6 @@ class SnowflakeClient(object):
     def __init__(
         self,
         username: Optional[str] = None,
-        role: Optional[str] = None,
         warehouse: Optional[str] = None,
         database: Optional[str] = None,
         password: Optional[str] = None,
@@ -45,7 +44,6 @@ class SnowflakeClient(object):
         """Initialise the client with the necessary credentials."""
         super().__init__()
         self.username = username
-        self.role = role
         self.warehouse = warehouse
         self.database = database
         self.password = password or getpass("Snowflake password:")
@@ -55,13 +53,11 @@ class SnowflakeClient(object):
     def _connect(self):
         """Connect to the snowflake DB."""
         return snowflake.connector.connect(
-            user=self.user,
+            user=self.username,
             password=self.password,
             account=self.account,
             database=self.database,
             warehouse=self.warehouse,
-            login_timeout=self.login_timeout,
-            network_timeout=self.network_timeout
         )
 
     def get_cursor(self) -> SnowflakeCursor:
@@ -83,7 +79,7 @@ class SnowflakeClient(object):
                 query, conn, chunksize=self.chunk_size
             )
 
-            for idx, chunk in enumerate(chunk_iter):
+            for chunk in chunk_iter:
                 chunks.append(chunk)
 
         except Exception as e:
