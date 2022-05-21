@@ -8,6 +8,7 @@ import pandas as pd
 import snowflake.connector
 from snowflake.connector import OperationalError
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.pandas_tools import write_pandas
 
 from sneachta.exceptions import (
     SnowflakeConnectionError, SnowflakeExecutionError
@@ -37,6 +38,7 @@ class SnowflakeClient(object):
         username: Optional[str] = None,
         warehouse: Optional[str] = None,
         database: Optional[str] = None,
+        schema: Optional[str] = None,
         password: Optional[str] = None,
         account: Optional[str] = None,
         chunk_size: int = CHUNK_SIZE
@@ -46,6 +48,7 @@ class SnowflakeClient(object):
         self.username = username
         self.warehouse = warehouse
         self.database = database
+        self.schema = schema
         self.password = password or getpass("Snowflake password:")
         self.account = account
         self.chunk_size = chunk_size
@@ -57,6 +60,7 @@ class SnowflakeClient(object):
             password=self.password,
             account=self.account,
             database=self.database,
+            schema=self.schema,
             warehouse=self.warehouse,
         )
 
@@ -65,8 +69,8 @@ class SnowflakeClient(object):
         # Connect to snowflake
         try:
             conn = self._connect()
-        except OperationalError as e:
-            raise SnowflakeConnectionError(e.args[0])
+        except OperationalError as err:
+            raise SnowflakeConnectionError(err.args[0]) from err
         return conn.cursor()
 
     def query(self, query: str) -> pd.DataFrame:
@@ -82,11 +86,11 @@ class SnowflakeClient(object):
             for chunk in chunk_iter:
                 chunks.append(chunk)
 
-        except Exception as e:
+        except Exception as err:
             cursor.execute('rollback;')
             raise SnowflakeExecutionError(
-                f'ROLLBACK: could not complete queries:\n{e}'
-            )
+                f'ROLLBACK: could not complete queries:\n{err}'
+            ) from err
         else:
             return pd.concat(chunks)
 
@@ -105,9 +109,19 @@ class SnowflakeClient(object):
 
         frame.to_csv(output, **kwargs)
 
-    def create_from_dataframe(self):
+    def create_from_dataframe(
+        self, frame: pd.DataFrame, table_name: str,
+        database: Optional[str] = None,
+        schema: Optional[str] = None
+    ) -> None:
         """Create a table from contents of a Pandas DataFrame."""
-        raise NotImplementedError()
+        conn = self._connect()
+        write_pandas(
+            conn, frame, table_name,
+            database=database,
+            schema=schema,
+            auto_create_table=True
+        )
 
     def insert_from_dataframe(self):
         """Insert the contents of a Pandas DataFrame into a table."""
