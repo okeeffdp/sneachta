@@ -1,7 +1,7 @@
 Sneachta
 ========
 
-> Sneacht - The Irish word for snow
+> Sneachta - The Irish word for snow
 
 ## Installation
 ```bash
